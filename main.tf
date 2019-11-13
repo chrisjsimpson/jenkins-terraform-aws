@@ -1,7 +1,6 @@
 provider "aws" {
   version = "~> 2.0"
   region  = "us-west-1"
-  profile = "default"
 }
 
 # VPC
@@ -16,6 +15,30 @@ resource "aws_vpc" "vpc" {
   }
 }
 
+# Internet Gateway for VPC
+resource "aws_internet_gateway" "gw" {
+  vpc_id = aws_vpc.vpc.id
+
+  tags = {
+    Name = "JenkinsInternetGW"
+  }
+}
+
+# Route table for VPC
+resource "aws_route_table" "route_table" {
+  vpc_id = aws_vpc.vpc.id
+
+  # Route out to the world, at your peril
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.gw.id
+  }
+
+  tags = {
+    Name = "JenkinsRouteTable"
+  }
+}
+
 # VPC Subnet
 resource "aws_subnet" "subnet1" {
   vpc_id     = aws_vpc.vpc.id
@@ -26,10 +49,19 @@ resource "aws_subnet" "subnet1" {
   }
 }
 
+# Associate route table to subnet1
+resource "aws_route_table_association" "route_association" {
+  subnet_id      = aws_subnet.subnet1.id
+  route_table_id = aws_route_table.route_table.id
+}
+
 # SECURITY GROUP
 resource "aws_security_group" "web-server-sg" {
   name        = "WebServerSG"
   description = "Allow ssh (port 22) and http (port 8080)"
+
+  # Apply security group to our custom VPC
+  vpc_id = aws_vpc.vpc.id
 
   ingress {
     # ssh
@@ -46,15 +78,32 @@ resource "aws_security_group" "web-server-sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"] #TODO make configurable & safer
   }
+
+  egress {
+    #Allow
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1" # all
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 # INSTANCES
 
 resource "aws_instance" "jenkins" {
-  ami           = "ami-0bdb828fd58c52235"
-  instance_type = "t2.micro"
+  ami                    = "ami-0bdb828fd58c52235"
+  instance_type          = "t2.micro"
+  vpc_security_group_ids = [aws_security_group.web-server-sg.id]
+  subnet_id              = aws_subnet.subnet1.id
+
+  associate_public_ip_address = true  #TODO dont expose like this
+  source_dest_check           = false #To allow NAT or VPN access
 
   tags = {
     Name = "Jenkins"
   }
+}
+
+output "jenkins-instance-public-ip" {
+  value = aws_instance.jenkins.public_ip
 }
