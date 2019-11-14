@@ -68,7 +68,7 @@ resource "aws_security_group" "web-server-sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] #TODO make configurable & safer
+    cidr_blocks = var.web-server-sg-ingress-ssh-cidr_blocks
   }
 
   ingress {
@@ -76,7 +76,7 @@ resource "aws_security_group" "web-server-sg" {
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] #TODO make configurable & safer
+    cidr_blocks = var.web-server-sg-ingress-http-cidr_blocks
   }
 
   egress {
@@ -89,11 +89,6 @@ resource "aws_security_group" "web-server-sg" {
 }
 
 # INSTANCES
-
-variable "public_key" {
-  type = "string"
-}
-
 resource "aws_key_pair" "key_pair" {
   key_name   = "deployer-key"
   public_key = var.public_key
