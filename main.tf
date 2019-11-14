@@ -90,8 +90,18 @@ resource "aws_security_group" "web-server-sg" {
 
 # INSTANCES
 
+variable "public_key" {
+  type = "string"
+}
+
+resource "aws_key_pair" "key_pair" {
+  key_name   = "deployer-key"
+  public_key = var.public_key
+}
+
 resource "aws_instance" "jenkins" {
   ami                    = "ami-0bdb828fd58c52235"
+  key_name               = "deployer-key"
   instance_type          = "t2.micro"
   vpc_security_group_ids = [aws_security_group.web-server-sg.id]
   subnet_id              = aws_subnet.subnet1.id
